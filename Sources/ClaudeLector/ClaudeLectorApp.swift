@@ -1,9 +1,14 @@
 import LectorCore
 import SwiftUI
+import os
 
 @main
 struct ClaudeLectorApp: App {
     @State private var store: LectorStore
+    // Without this binding SwiftUI quits the app whenever the status item is hidden — including when
+    // macOS hides it on its own (System Settings › Menu Bar, or Control Center's block list).
+    // With it the app keeps running hidden, stays reachable via the hotkey, and reappears once allowed.
+    @State private var menuBarInserted = true
 
     init() {
         // Writing to a pipe whose reader died must be an error, not a crash.
@@ -19,13 +24,17 @@ struct ClaudeLectorApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra {
+        MenuBarExtra(isInserted: $menuBarInserted) {
             EntryListView(store: store)
                 .modelContainer(store.container)
         } label: {
             MenuBarLabel(store: store)
         }
         .menuBarExtraStyle(.window)
+        .onChange(of: menuBarInserted) { _, inserted in
+            Logger(subsystem: "cz.lukisk.ClaudeLector", category: "app")
+                .notice("menu bar item \(inserted ? "shown" : "hidden by macOS", privacy: .public)")
+        }
 
         Window("Claude Lector", id: HistoryWindow.id) {
             HistoryWindow(store: store)
