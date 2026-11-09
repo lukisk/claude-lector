@@ -14,7 +14,7 @@ codesign --force --sign - --deep "$APP"
 codesign --verify "$APP"
 mkdir -p "$HOME/Applications"
 # Quit a running copy so the new build replaces it cleanly.
-osascript -e 'tell application id "cz.lukisk.ClaudeLector" to quit' >/dev/null 2>&1 || true
+osascript -e 'tell application id "cz.lukisk.Lector" to quit' >/dev/null 2>&1 || true
 rm -rf "$HOME/Applications/Claude Lector.app"
 cp -R "$APP" "$HOME/Applications/"
 echo "Installed $HOME/Applications/Claude Lector.app"

@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleIdentifier</key><string>cz.lukisk.ClaudeLector</string>
+    <key>CFBundleIdentifier</key><string>cz.lukisk.Lector</string>
     <key>CFBundleName</key><string>Claude Lector</string>
     <key>CFBundleDisplayName</key><string>Claude Lector</string>
     <key>CFBundleExecutable</key><string>ClaudeLector</string>
