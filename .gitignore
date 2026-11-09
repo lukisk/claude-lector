@@ -1,0 +1,8 @@
+.build/
+build/
+.swiftpm/
+*.xcuserstate
+.superpowers/
+spike/report.md
+docs/superpowers/
+spike/*.log
