@@ -10,19 +10,41 @@ public struct PreparedPrompt: Sendable, Equatable {
     public var truncated: Bool
 }
 
+public enum CheckMode: Sendable {
+    /// Captured from Claude Code: skip anything that isn't clearly the user's English prose.
+    case automatic
+    /// Typed into the quick-check field: the user wants it checked, so only code and
+    /// non-English text are filtered out.
+    case manual
+}
+
 /// Turns a raw prompt into the prose chunks worth grammar-checking.
 public enum PromptFilter {
-    public static func prepare(_ prompt: String, budget: Int = 3000, chunkLimit: Int = 1000) -> Result<PreparedPrompt, SkipReason> {
+    public static func prepare(_ prompt: String, mode: CheckMode = .automatic, budget: Int = 3000, chunkLimit: Int = 1000) -> Result<PreparedPrompt, SkipReason> {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.range(of: #"^/[A-Za-z0-9:_-]+(\s|$)"#, options: .regularExpression) != nil {
+        if mode == .automatic, trimmed.range(of: #"^/[A-Za-z0-9:_-]+(\s|$)"#, options: .regularExpression) != nil {
             return .failure(.slashCommand)
         }
         let stripped = stripNonProse(trimmed)
-        if wordCount(stripped) < 3 { return .failure(.tooShort) }
-        let paragraphs = proseParagraphs(stripped)
-        if paragraphs.isEmpty { return .failure(.noProse) }
-        if !isEnglish(paragraphs.joined(separator: "\n\n")) { return .failure(.notEnglish) }
-        return .success(pack(paragraphs, budget: budget, chunkLimit: chunkLimit))
+        let words = wordCount(stripped)
+        switch mode {
+        case .automatic:
+            if words < 3 { return .failure(.tooShort) }
+            let paragraphs = proseParagraphs(stripped)
+            if paragraphs.isEmpty { return .failure(.noProse) }
+            if !isEnglish(paragraphs.joined(separator: "\n\n")) { return .failure(.notEnglish) }
+            return .success(pack(paragraphs, budget: budget, chunkLimit: chunkLimit))
+        case .manual:
+            if words == 0 { return .failure(.tooShort) }
+            // Prose paragraphs if there are any; otherwise whatever text the user typed.
+            let prose = proseParagraphs(stripped)
+            let paragraphs = prose.isEmpty
+                ? stripped.split(separator: /\n[ \t]*\n/).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+                : prose
+            // Language detection is meaningless for one or two words.
+            if words >= 3, !isEnglish(paragraphs.joined(separator: "\n\n")) { return .failure(.notEnglish) }
+            return .success(pack(paragraphs, budget: budget, chunkLimit: chunkLimit))
+        }
     }
 
     // MARK: - Stripping

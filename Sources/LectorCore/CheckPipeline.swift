@@ -19,7 +19,7 @@ public struct CheckPipeline: Sendable {
     public func run(_ record: InboxRecord) async throws(EngineError) -> CheckOutcome {
         guard record.isInteractive else { return .skipped(.nonInteractive) }
         let prepared: PreparedPrompt
-        switch PromptFilter.prepare(record.prompt) {
+        switch PromptFilter.prepare(record.prompt, mode: record.isManual ? .manual : .automatic) {
         case .failure(let reason): return .skipped(reason)
         case .success(let p): prepared = p
         }

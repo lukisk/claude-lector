@@ -10,11 +10,13 @@ public struct EntrySummary: Sendable {
     public var status: EntryStatus
     public var categories: Set<IssueCategory>
     public var seen: Bool
+    public var isManual: Bool
 
-    public init(status: EntryStatus, categories: Set<IssueCategory>, seen: Bool) {
+    public init(status: EntryStatus, categories: Set<IssueCategory>, seen: Bool, isManual: Bool = false) {
         self.status = status
         self.categories = categories
         self.seen = seen
+        self.isManual = isManual
     }
 }
 
@@ -24,7 +26,7 @@ public enum EntryState {
 
     /// Unseen, checked prompts with at least one grammar mistake.
     public static func badgeCount(_ entries: [EntrySummary]) -> Int {
-        entries.filter { $0.status == .checked && !$0.seen && $0.categories.contains(.grammar) }.count
+        entries.filter { $0.status == .checked && !$0.seen && !$0.isManual && $0.categories.contains(.grammar) }.count
     }
 
     public enum Reaction: Equatable, Sendable {

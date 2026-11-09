@@ -45,6 +45,14 @@ public struct InboxRecord: Codable, Sendable, Equatable {
         return "derived-" + digest.prefix(16).map { String(format: "%02x", $0) }.joined()
     }
 
+    /// A sentence typed into the quick-check field.
+    public static func manual(_ text: String, now: Date = .now) -> InboxRecord {
+        InboxRecord(promptId: "manual-\(UUID().uuidString)", sessionId: "manual", cwd: "manual",
+                    prompt: text, timestamp: now, entrypoint: "manual", attended: "1")
+    }
+
+    public var isManual: Bool { entrypoint == "manual" }
+
     /// Headless `claude -p` / SDK runs report `sdk-*` entrypoints or `attended == "0"`.
     /// Missing values are treated as interactive (better noise than dropping real prompts).
     public var isInteractive: Bool {
