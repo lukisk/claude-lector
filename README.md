@@ -17,6 +17,9 @@ Claude Code and shows the mistakes with one-line explanations.
 4. **Open window** in the popover opens the full history: a searchable list (All / With
    mistakes / Grammar only) and a large detail view with each mistake as a card. While the
    window is open the app shows in the Dock and Cmd-Tab.
+5. **Quick check**: type or paste any sentence into the field at the top of the popover or the
+   window and press ⌘↩. **⌥⌘L** opens a quick-check window from any app. Manual checks are kept
+   in history under the project "manual" and don't count toward the badge.
 
 ## Install
 

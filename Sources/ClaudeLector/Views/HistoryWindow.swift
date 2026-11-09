@@ -18,6 +18,22 @@ struct HistoryWindow: View {
     }
 
     var body: some View {
+        VStack(spacing: 0) {
+            QuickCheckView(store: store, large: true)
+                .padding(16)
+            Divider()
+            splitView
+        }
+        .onAppear {
+            // A real app while the window is open: Dock icon and Cmd-Tab.
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate()
+            if selection == nil { selection = entries.first?.id }
+        }
+        .onDisappear { NSApp.setActivationPolicy(.accessory) }
+    }
+
+    private var splitView: some View {
         NavigationSplitView {
             List(entries, selection: $selection) { entry in
                 HistoryRow(entry: entry).tag(entry.id)
@@ -47,13 +63,6 @@ struct HistoryWindow: View {
                 .pickerStyle(.segmented)
             }
         }
-        .onAppear {
-            // A real app while the window is open: Dock icon and Cmd-Tab.
-            NSApp.setActivationPolicy(.regular)
-            NSApp.activate()
-            if selection == nil { selection = entries.first?.id }
-        }
-        .onDisappear { NSApp.setActivationPolicy(.accessory) }
     }
 }
 

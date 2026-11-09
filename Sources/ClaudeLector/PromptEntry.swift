@@ -51,7 +51,7 @@ final class PromptEntry {
     }
 
     var summary: EntrySummary {
-        EntrySummary(status: status, categories: Set(issues.map(\.issue.category)), seen: seen)
+        EntrySummary(status: status, categories: Set(issues.map(\.issue.category)), seen: seen, isManual: record.isManual)
     }
 
     func apply(_ outcome: CheckOutcome) {

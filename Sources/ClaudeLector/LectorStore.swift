@@ -2,6 +2,7 @@ import Foundation
 import LectorCore
 import Observation
 import SwiftData
+import SwiftUI
 import os
 
 @MainActor @Observable
@@ -23,8 +24,74 @@ final class LectorStore {
     private static let unavailableBackoff: TimeInterval = 300
 
     @ObservationIgnored private var watcher: InboxWatcher?
+    @ObservationIgnored private var hotKey: GlobalHotKey?
+    /// Captured from a view so the global hotkey can open windows.
+    @ObservationIgnored var openWindow: OpenWindowAction?
 
     var context: ModelContext { container.mainContext }
+
+    /// ⌥⌘L from anywhere opens the quick-check window.
+    func registerHotKey() {
+        hotKey = GlobalHotKey { [weak self] in
+            guard let openWindow = self?.openWindow else {
+                Self.log.error("hotkey pressed but no openWindow action captured yet")
+                return
+            }
+            Self.log.info("hotkey: opening quick check")
+            openWindow(id: QuickCheckWindow.id)
+            NSApp.activate()
+        }
+    }
+
+    enum QuickCheckResult {
+        case entry(PromptEntry)
+        case message(String)
+    }
+
+    /// Checks typed text right away and keeps it in history as a "manual" entry.
+    func checkManually(_ text: String) async -> QuickCheckResult {
+        let entry = PromptEntry(record: .manual(text))
+        entry.seen = true
+        context.insert(entry)
+        try? context.save()
+
+        updateAvailability()
+        if case .unavailable(let reason) = availability {
+            return .message("\(reason). It will be checked when the engine is back.")
+        }
+        do throws(EngineError) {
+            entry.apply(try await CheckPipeline(engine: engine).run(entry.record))
+        } catch {
+            switch EntryState.reaction(to: error, attempts: entry.attempts) {
+            case .stopPass(let reason):
+                if let reason {
+                    availability = .unavailable(reason: reason)
+                    runtimeUnavailableSince = .now
+                }
+                try? context.save()
+                return .message("\(reason ?? "The engine had a hiccup"). It stays queued and will be checked later.")
+            case .setStatus(let status, let countAttempt):
+                if countAttempt { entry.attempts += 1 }
+                entry.status = status
+            }
+        }
+        try? context.save()
+        refreshCounts()
+        switch entry.status {
+        case .skipped where entry.skipReasonRaw == SkipReason.notEnglish.rawValue:
+            context.delete(entry)
+            try? context.save()
+            return .message("This doesn't look like English.")
+        case .skipped:
+            context.delete(entry)
+            try? context.save()
+            return .message("Nothing to check here.")
+        case .refused:
+            return .message("The model declined to check this text.")
+        default:
+            return .entry(entry)
+        }
+    }
 
     func startWatching() {
         watcher = InboxWatcher(directory: InboxReader.defaultURL.deletingLastPathComponent()) { [weak self] in

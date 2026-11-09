@@ -20,6 +20,9 @@ struct EntryListView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            QuickCheckView(store: store)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 10)
             Divider()
             if entries.isEmpty {
                 ContentUnavailableView("No prompts yet", systemImage: "text.badge.checkmark",
