@@ -50,8 +50,15 @@ struct QuickCheckView: View {
         checking = true
         result = nil
         Task {
-            result = await store.checkManually(input)
+            let outcome = await store.checkManually(input)
+            result = outcome
             checking = false
+            // Checked: clear the field for the next sentence (the result stays below).
+            // A message (not English, engine down) keeps the text so it can be fixed or retried.
+            if case .entry = outcome {
+                text = ""
+                focused = true
+            }
         }
     }
 }
@@ -68,6 +75,12 @@ struct QuickCheckWindow: View {
         }
         .frame(width: 560)
         .frame(minHeight: 140, maxHeight: 520)
-        .onAppear { NSApp.activate() }
+        .onAppear {
+            DispatchQueue.main.async {
+                NSApp.activate()
+                NSApp.windows.first { $0.isVisible && $0.canBecomeKey && $0.title == "Quick Check" }?
+                    .makeKeyAndOrderFront(nil)
+            }
+        }
     }
 }

@@ -52,7 +52,7 @@ struct EntryListView: View {
                 Spacer()
                 Button("Open window", systemImage: "macwindow") {
                     openWindow(id: HistoryWindow.id)
-                    NSApp.activate()
+                    DispatchQueue.main.async { HistoryWindow.bringToFront() }
                 }
                 .controlSize(.small)
             }

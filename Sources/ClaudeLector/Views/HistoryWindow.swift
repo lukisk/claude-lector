@@ -27,8 +27,10 @@ struct HistoryWindow: View {
         .onAppear {
             // A real app while the window is open: Dock icon and Cmd-Tab.
             NSApp.setActivationPolicy(.regular)
-            NSApp.activate()
             if selection == nil { selection = entries.first?.id }
+            // The policy switch applies asynchronously; activate and make the window key
+            // afterwards, otherwise keystrokes go nowhere until the user clicks around.
+            DispatchQueue.main.async { Self.bringToFront() }
         }
         .onDisappear { NSApp.setActivationPolicy(.accessory) }
     }
@@ -63,6 +65,15 @@ struct HistoryWindow: View {
                 .pickerStyle(.segmented)
             }
         }
+    }
+}
+
+extension HistoryWindow {
+    @MainActor static func bringToFront() {
+        NSApp.activate()
+        NSApp.windows
+            .first { $0.isVisible && $0.canBecomeKey && $0.title == "Claude Lector" }?
+            .makeKeyAndOrderFront(nil)
     }
 }
 
