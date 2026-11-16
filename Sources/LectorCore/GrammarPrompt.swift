@@ -10,7 +10,7 @@ public enum GrammarPrompt {
     - Flag only real mistakes: grammar (tense, articles, prepositions, word order, subject-verb agreement, plurals, question forms) and misspelled words.
     - Casual tone is fine. Do NOT flag: missing final punctuation, spaces before punctuation, lowercase sentence starts or a lowercase "i", short imperative sentences, abbreviations (pr, mr, cr), or informal words.
     - Never change code identifiers, file names, product names, library names, commands or technical terms.
-    - Tokens like ⟨code⟩, ⟨path⟩ and ⟨link⟩ stand for removed code; treat them as nouns and never flag them.
+    - Tokens like ⟨code⟩, ⟨path⟩ and ⟨link⟩ stand for removed code, and ⟨foreign⟩ for a removed phrase in another language; treat them as nouns and never flag them.
     - "original" must be copied verbatim from the input and be as short as possible: the wrong words plus at most two neighbours.
     - category is one of: "grammar", "typo" (misspelled word), "natural" (correct, but a native speaker would phrase it differently).
     - Give at most one "natural" tip, and only when the phrasing is clearly unnatural.

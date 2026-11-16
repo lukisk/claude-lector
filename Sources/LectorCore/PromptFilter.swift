@@ -32,8 +32,8 @@ public enum PromptFilter {
             if words < 3 { return .failure(.tooShort) }
             let paragraphs = proseParagraphs(stripped)
             if paragraphs.isEmpty { return .failure(.noProse) }
-            if !isEnglish(paragraphs.joined(separator: "\n\n")) { return .failure(.notEnglish) }
-            return .success(pack(paragraphs, budget: budget, chunkLimit: chunkLimit))
+            guard let english = englishParagraphs(paragraphs) else { return .failure(.notEnglish) }
+            return .success(pack(english, budget: budget, chunkLimit: chunkLimit))
         case .manual:
             if words == 0 { return .failure(.tooShort) }
             // Prose paragraphs if there are any; otherwise whatever text the user typed.
@@ -42,14 +42,16 @@ public enum PromptFilter {
                 ? stripped.split(separator: /\n[ \t]*\n/).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
                 : prose
             // Language detection is meaningless for one or two words.
-            if words >= 3, !isEnglish(paragraphs.joined(separator: "\n\n")) { return .failure(.notEnglish) }
-            return .success(pack(paragraphs, budget: budget, chunkLimit: chunkLimit))
+            if words < 3 { return .success(pack(paragraphs, budget: budget, chunkLimit: chunkLimit)) }
+            guard let english = englishParagraphs(paragraphs) else { return .failure(.notEnglish) }
+            return .success(pack(english, budget: budget, chunkLimit: chunkLimit))
         }
     }
 
     // MARK: - Stripping
 
-    static let placeholders = ["⟨code⟩", "⟨path⟩", "⟨link⟩"]
+    static let placeholders = ["⟨code⟩", "⟨path⟩", "⟨link⟩", foreignPlaceholder]
+    static let foreignPlaceholder = "⟨foreign⟩"
 
     /// Blocks Claude Code delivers through the user-prompt channel although the user didn't
     /// type them: subagent reports, background-task notices, system reminders and messages
@@ -115,22 +117,57 @@ public enum PromptFilter {
         return letterWords.count >= 3
     }
 
-    /// English overall (≥ 0.7) and no clause that is clearly another language.
-    /// Tokens with digits (mr235, pr120) are ignored: they skew short texts toward English.
+    /// The paragraphs with clearly foreign clauses masked, or nil when the text isn't mostly English.
+    /// Masking comes first: a few words with diacritics (a quoted Czech title) otherwise make the
+    /// recognizer call a long English prompt Czech.
+    static func englishParagraphs(_ paragraphs: [String]) -> [String]? {
+        let masked = paragraphs.map(maskForeignClauses)
+        let englishWords = wordCount(masked.joined(separator: " "))
+        let allWords = wordCount(paragraphs.joined(separator: " "))
+        guard englishWords >= 3, englishWords * 2 >= allWords,
+              isEnglish(masked.joined(separator: "\n\n")) else { return nil }
+        return masked
+    }
+
+    /// English overall (≥ 0.7), ignoring tokens with digits (mr235, pr120 skew short texts toward English).
     static func isEnglish(_ text: String) -> Bool {
-        let cleaned = text.split(whereSeparator: \.isWhitespace)
-            .filter { !$0.contains(where: \.isNumber) && !placeholders.contains(where: $0.contains) }
-            .joined(separator: " ")
-        guard englishProbability(cleaned) >= 0.7 else { return false }
-        let clauses = cleaned.split(whereSeparator: { ",;?.!\n".contains($0) })
-            .map(String.init)
-            .filter { $0.split(whereSeparator: \.isWhitespace).count >= 3 }
-        return !clauses.contains { clause in
-            let r = NLLanguageRecognizer()
-            r.processString(clause)
-            guard let lang = r.dominantLanguage, lang != .english else { return false }
-            return (r.languageHypotheses(withMaximum: 1)[lang] ?? 0) >= 0.8
+        englishProbability(languageWords(text).joined(separator: " ")) >= 0.7
+    }
+
+    /// Replaces clauses that are clearly another language — a quoted Czech title, a colleague's
+    /// Slovak sentence — with ⟨foreign⟩, so the English around them can still be checked.
+    static func maskForeignClauses(_ text: String) -> String {
+        var out = ""
+        var clause = ""
+        func flush() {
+            if isForeignClause(clause) {
+                let lead = clause.prefix(while: \.isWhitespace)
+                let trail = clause.reversed().prefix(while: \.isWhitespace)
+                out += lead + foreignPlaceholder + String(trail.reversed())
+            } else {
+                out += clause
+            }
+            clause = ""
         }
+        for ch in text {
+            if ",;?.!\n".contains(ch) { flush(); out.append(ch) } else { clause.append(ch) }
+        }
+        flush()
+        return out
+    }
+
+    private static func isForeignClause(_ clause: String) -> Bool {
+        let words = languageWords(clause)
+        guard words.count >= 3 else { return false }
+        let r = NLLanguageRecognizer()
+        r.processString(words.joined(separator: " "))
+        guard let lang = r.dominantLanguage, lang != .english else { return false }
+        return (r.languageHypotheses(withMaximum: 1)[lang] ?? 0) >= 0.8
+    }
+
+    private static func languageWords(_ text: String) -> [Substring] {
+        text.split(whereSeparator: \.isWhitespace)
+            .filter { !$0.contains(where: \.isNumber) && !placeholders.contains(where: $0.contains) }
     }
 
     private static func englishProbability(_ text: String) -> Double {

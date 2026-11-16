@@ -105,3 +105,17 @@ func shortEnglishAccepted(_ s: String) {
     let prompt = "<task-notification>\n<summary>Commit security review found a problem in the store file</summary>\n</task-notification>\n<system-reminder>\nBackground security review of committed changes, address the findings below.\n</system-reminder>"
     #expect(PromptFilter.prepare(prompt) == .failure(.tooShort))
 }
+
+// MARK: - Foreign quotes inside English prompts
+
+@Test func englishPromptQuotingCzechTitleIsChecked() throws {
+    let prompt = "analyse https://example.com/artifact/abc?sk=x section  Pasti Homeru, které týmy objevily nezávisle. Check all issues and triage them. if it is real homer's  issue create  issue for it in github. Don't forget to remove any note about the company, internal paths, tools etc."
+    let text = try #require(joined(PromptFilter.prepare(prompt)))
+    #expect(!text.contains("objevily"))
+    #expect(text.contains("⟨foreign⟩"))
+    #expect(text.contains("Check all issues and triage them"))
+}
+
+@Test func mostlySlovakWithEnglishClauseStillSkipped() {
+    #expect(PromptFilter.prepare("najdi mi pre a proti pre udrziavanie adr v tomto repe, je nejaky dovod ich nepisat alebo naopak je dobre ich pisat, check the docs") == .failure(.notEnglish))
+}
