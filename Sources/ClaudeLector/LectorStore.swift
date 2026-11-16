@@ -94,6 +94,7 @@ final class LectorStore {
     }
 
     func startWatching() {
+        purgeMachineMessages()
         watcher = InboxWatcher(directory: InboxReader.defaultURL.deletingLastPathComponent()) { [weak self] in
             await self?.ingest()
             await self?.processPending()
@@ -151,13 +152,27 @@ final class LectorStore {
 
     // MARK: - Pipeline
 
+    /// Deletes entries captured before machine messages were filtered at ingest.
+    private func purgeMachineMessages() {
+        do {
+            let stale = try context.fetch(FetchDescriptor<PromptEntry>()).filter { PromptFilter.isMachineMessage($0.prompt) }
+            guard !stale.isEmpty else { return }
+            stale.forEach(context.delete)
+            try context.save()
+            Self.log.info("removed \(stale.count) agent/system messages from history")
+        } catch {
+            Self.log.error("purge failed: \(String(describing: error), privacy: .public)")
+        }
+    }
+
     /// Moves everything from the inbox into the store as pending entries.
     func ingest() async {
         do {
             let batch = try await reader.drain()
             if !batch.records.isEmpty {
                 let existing = Set(try context.fetch(FetchDescriptor<PromptEntry>()).map(\.promptId))
-                for r in batch.records where !existing.contains(r.promptId) {
+                // Subagent reports and task notices arrive as prompts but aren't the user's writing.
+                for r in batch.records where !existing.contains(r.promptId) && !r.isMachineMessage {
                     context.insert(PromptEntry(record: r))
                 }
                 try context.save()

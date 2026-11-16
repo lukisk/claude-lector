@@ -51,10 +51,27 @@ public enum PromptFilter {
 
     static let placeholders = ["⟨code⟩", "⟨path⟩", "⟨link⟩"]
 
+    /// Blocks Claude Code delivers through the user-prompt channel although the user didn't
+    /// type them: subagent reports, background-task notices, system reminders and messages
+    /// from other sessions. Only complete blocks match, so a prompt that merely mentions
+    /// `<agent-message …>` keeps its text.
+    public static func stripMachineBlocks(_ text: String) -> String {
+        text.replacingOccurrences(
+            of: #"<(agent-message|task-notification|cross-session-message|system-reminder)\b[^>]*>[\s\S]*?</\1>"#,
+            with: "\n\n", options: .regularExpression)
+    }
+
+    /// True when the prompt consists only of such injected blocks.
+    public static func isMachineMessage(_ prompt: String) -> Bool {
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty
+            && stripMachineBlocks(trimmed).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     /// Removes fenced code entirely and replaces inline code, URLs and paths with
     /// placeholders so the remaining sentence stays grammatical.
     static func stripNonProse(_ text: String) -> String {
-        var s = text
+        var s = stripMachineBlocks(text)
         // Pasted text was written by someone else — not the user's English.
         s = s.replacingOccurrences(of: #"<pasted_content[^>]*>[\s\S]*?(</pasted_content[^>]*>|$)"#, with: "\n\n", options: .regularExpression)
         s = s.replacingOccurrences(of: #"```[\s\S]*?(```|$)"#, with: "\n\n", options: .regularExpression)

@@ -53,6 +53,10 @@ public struct InboxRecord: Codable, Sendable, Equatable {
 
     public var isManual: Bool { entrypoint == "manual" }
 
+    /// The whole prompt is something Claude Code injected (a subagent report, a task
+    /// notification, …), not text the user typed. Such records are not kept at all.
+    public var isMachineMessage: Bool { PromptFilter.isMachineMessage(prompt) }
+
     /// Headless `claude -p` / SDK runs report `sdk-*` entrypoints or `attended == "0"`.
     /// Missing values are treated as interactive (better noise than dropping real prompts).
     public var isInteractive: Bool {

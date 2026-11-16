@@ -48,3 +48,22 @@ func nonInteractive(ep: String, att: String) {
     let line = #"{"session_id":"s1","cwd":"/a","prompt":"hello there","timestamp":"2026-11-09T10:00:00Z"}"#
     #expect(!(try InboxRecord.decoder.decode(InboxRecord.self, from: Data(line.utf8))).promptId.isEmpty)
 }
+
+@Test(arguments: [
+    "<agent-message from=\"a9ff1002617d16d5e\">\n[Subagent hand-back] The report.\n</agent-message>",
+    "  <task-notification>\n<summary>Commit review found x</summary>\n</task-notification>\n<system-reminder>\nAddress the findings.\n</system-reminder>\n",
+    "<cross-session-message from=\"worker\">please check the tests</cross-session-message>",
+])
+func machineMessageDetected(_ prompt: String) {
+    #expect(record(entrypoint: "cli", attended: "1", prompt: prompt).isMachineMessage)
+}
+
+@Test(arguments: [
+    "fix the bug please now",
+    "why did it catch <agent-message from=\"a9ff1002617d16d5e\"> and not my message",
+    "Look at this report\n<agent-message from=\"a1\">\nreport\n</agent-message>",
+    "<pasted_content id=\"1\">\nSomebody else wrote this.\n</pasted_content>",
+])
+func userPromptIsNotMachineMessage(_ prompt: String) {
+    #expect(!record(entrypoint: "cli", attended: "1", prompt: prompt).isMachineMessage)
+}

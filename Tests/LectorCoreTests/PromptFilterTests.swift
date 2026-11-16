@@ -91,3 +91,17 @@ func shortEnglishAccepted(_ s: String) {
     #expect(!text.contains("temporarily restricting"))
     #expect(text.contains("I think it are broken"))
 }
+
+// MARK: - Messages Claude Code injects as user turns
+
+@Test func stripsAgentMessageKeepsUserText() throws {
+    let r = PromptFilter.prepare("Can you check if this report make sense?\n\n<agent-message from=\"a9cb140452a6170ed\">\n[Subagent hand-back] The text below is the final report of a subagent.\n</agent-message>")
+    let text = try #require(joined(r))
+    #expect(!text.contains("Subagent"))
+    #expect(text.contains("this report make sense"))
+}
+
+@Test func stripsTaskNotificationAndSystemReminder() {
+    let prompt = "<task-notification>\n<summary>Commit security review found a problem in the store file</summary>\n</task-notification>\n<system-reminder>\nBackground security review of committed changes, address the findings below.\n</system-reminder>"
+    #expect(PromptFilter.prepare(prompt) == .failure(.tooShort))
+}
